@@ -1,30 +1,13 @@
 {
   "meta": {
-    "lastTouchedVersion": "2026.3.8",
-    "lastTouchedAt": "2026-03-22T09:04:09.946Z"
+    "lastTouchedVersion": "2026.3.2",
+    "lastTouchedAt": "2026-03-05T15:55:33.659Z"
   },
   "wizard": {
     "lastRunAt": "2026-03-05T11:15:21.053Z",
     "lastRunVersion": "2026.3.2",
     "lastRunCommand": "onboard",
     "lastRunMode": "local"
-  },
-  "update": {
-    "checkOnStart": false
-  },
-  "browser": {
-    "enabled": true,
-    "color": "#00AA00",
-    "executablePath": "/usr/bin/chromium-browser",
-    "headless": true,
-    "noSandbox": true,
-    "defaultProfile": "openclaw",
-    "extraArgs": [
-      "--window-size=1920,1080",
-      "--test-type",
-      "--disable-gpu",
-      "--no-sandbox"
-    ]
   },
   "secrets": {
     "providers": {
@@ -131,8 +114,8 @@
         "api": "openai-completions",
         "models": [
           {
-            "id": "gpt-5.4",
-            "name": "GPT-5.4",
+            "id": "gpt-5.4-mini",
+            "name": "GPT-5.4 Mini",
             "reasoning": false,
             "input": [
               "text"
@@ -152,44 +135,42 @@
   },
   "agents": {
     "defaults": {
+      "verboseDefault": "off",
       "model": {
-        "primary": "code889/gpt-5.4"
+        "primary": "code889/gpt-5.4-mini"
       },
-      "imageModel": "code889/gpt-5.4",
-
+      "imageModel": "code889/gpt-5.4-mini",
       "models": {
         "miaoda/miaoda-model-auto": {
           "alias": "Miaoda Auto"
         },
         "miaoda/miaoda-auto-multimodal": {
           "alias": "Miaoda Multimodal"
-        },
-        "code889/gpt-5.4-mini": {}
+        }
       },
       "workspace": "/home/gem/workspace/agent/workspace",
       "compaction": {
         "mode": "safeguard",
         "reserveTokensFloor": 50000
       },
-      "verboseDefault": "off",
-      "blockStreamingCoalesce": {
-        "minChars": 20,
-        "maxChars": 800,
-        "idleMs": 300
+      "maxConcurrent": 4,
+      "subagents": {
+        "maxConcurrent": 8
       },
       "humanDelay": {
         "mode": "off"
       },
-      "heartbeat": {
-        "every": "4h",
-        "activeHours": {
-          "start": "08:00",
-          "end": "22:00"
-        }
+      "blockStreamingCoalesce": {
+        "idleMs": 300,
+        "minChars": 20,
+        "maxChars": 800
       },
-      "maxConcurrent": 4,
-      "subagents": {
-        "maxConcurrent": 8
+      "heartbeat": {
+        "activeHours": {
+          "end": "22:00",
+          "start": "08:00"
+        },
+        "every": "4h"
       }
     }
   },
@@ -215,6 +196,20 @@
     "sessions": {
       "visibility": "all"
     }
+  },
+  "browser": {
+    "enabled": true,
+    "color": "#00AA00",
+    "executablePath": "/usr/bin/chromium-browser",
+    "headless": true,
+    "noSandbox": true,
+    "defaultProfile": "openclaw",
+    "extraArgs": [
+      "--window-size=1920,1080",
+      "--test-type",
+      "--disable-gpu",
+      "--no-sandbox"
+    ]
   },
   "messages": {
     "ackReactionScope": "group-mentions"
@@ -262,10 +257,10 @@
     "mode": "local",
     "bind": "loopback",
     "controlUi": {
+      "dangerouslyDisableDeviceAuth": true,
       "allowedOrigins": [
         "https://mcnzdxo4bmtq-app_4jqubnm75y5g5-1859790851159083.aiforce.run"
-      ],
-      "dangerouslyDisableDeviceAuth": true
+      ]
     },
     "auth": {
       "mode": "token",
@@ -289,124 +284,49 @@
       "nodeManager": "npm"
     },
     "entries": {
-      "1password": {
-        "enabled": false
-      },
-      "apple-notes": {
-        "enabled": false
-      },
-      "apple-reminders": {
-        "enabled": false
-      },
-      "bear-notes": {
-        "enabled": false
-      },
-      "bluebubbles": {
-        "enabled": false
-      },
-      "blucli": {
-        "enabled": false
-      },
-      "camsnap": {
-        "enabled": false
-      },
-      "coding-agent": {
-        "enabled": false
-      },
-      "discord": {
-        "enabled": false
-      },
-      "eightctl": {
-        "enabled": false
-      },
-      "gemini": {
-        "enabled": false
-      },
-      "gifgrep": {
-        "enabled": false
-      },
-      "gog": {
-        "enabled": false
-      },
-      "goplaces": {
-        "enabled": false
-      },
-      "imsg": {
-        "enabled": false
-      },
-      "model-usage": {
-        "enabled": false
-      },
-      "nano-banana-pro": {
-        "enabled": false
-      },
-      "notion": {
-        "enabled": false
-      },
-      "openai-image-gen": {
-        "enabled": false
-      },
-      "openai-whisper": {
-        "enabled": false
-      },
-      "openai-whisper-api": {
-        "enabled": false
-      },
-      "openhue": {
-        "enabled": false
-      },
-      "oracle": {
-        "enabled": false
-      },
-      "ordercli": {
-        "enabled": false
-      },
-      "peekaboo": {
-        "enabled": false
-      },
-      "sag": {
-        "enabled": false
-      },
-      "slack": {
-        "enabled": false
-      },
-      "sonoscli": {
-        "enabled": false
-      },
-      "spotify-player": {
-        "enabled": false
-      },
-      "summarize": {
-        "enabled": false
-      },
-      "things-mac": {
-        "enabled": false
-      },
-      "trello": {
-        "enabled": false
-      },
-      "voice-call": {
-        "enabled": false
-      },
-      "wacli": {
-        "enabled": false
-      },
-      "xurl": {
-        "enabled": false
-      },
-      "feishu-task": {
-        "enabled": false
-      },
-      "gh-issues": {
-        "enabled": false
-      },
-      "github": {
-        "enabled": false
-      },
-      "tmux": {
-        "enabled": false
-      }
+      "1password": { "enabled": false },
+      "apple-notes": { "enabled": false },
+      "apple-reminders": { "enabled": false },
+      "bear-notes": { "enabled": false },
+      "bluebubbles": { "enabled": false },
+      "blucli": { "enabled": false },
+      "camsnap": { "enabled": false },
+      "coding-agent": { "enabled": false },
+      "discord": { "enabled": false },
+      "eightctl": { "enabled": false },
+      "gemini": { "enabled": false },
+      "gifgrep": { "enabled": false },
+      "gog": { "enabled": false },
+      "goplaces": { "enabled": false },
+      "imsg": { "enabled": false },
+      "model-usage": { "enabled": false },
+      "nano-banana-pro": { "enabled": false },
+      "notion": { "enabled": false },
+      "openai-image-gen": { "enabled": false },
+      "openai-whisper": { "enabled": false },
+      "openai-whisper-api": { "enabled": false },
+      "openhue": { "enabled": false },
+      "oracle": { "enabled": false },
+      "ordercli": { "enabled": false },
+      "peekaboo": { "enabled": false },
+      "sag": { "enabled": false },
+      "slack": { "enabled": false },
+      "sonoscli": { "enabled": false },
+      "spotify-player": { "enabled": false },
+      "summarize": { "enabled": false },
+      "things-mac": { "enabled": false },
+      "trello": { "enabled": false },
+      "voice-call": { "enabled": false },
+      "wacli": { "enabled": false },
+      "xurl": { "enabled": false },
+      "feishu-task": { "enabled": false },
+      "gh-issues": { "enabled": false },
+      "github": { "enabled": false },
+      "tmux": { "enabled": false }
     }
+  },
+  "update": {
+    "checkOnStart": false
   },
   "plugins": {
     "allow": [
@@ -425,9 +345,7 @@
         "enabled": true,
         "config": {
           "message": "👋 Hi，我是**李克明的助手**，一只生活在飞书里的 🦞 小龙虾，我已准备就绪，并学习了[如何使用飞书](https://bytedance.larkoffice.com/docx/MFK7dDFLFoVlOGxWCv5cTXKmnMh)，有什么需要帮忙的随时说~",
-          "targets": [
-            "ou_0bc1d8ae796b067c60479ce1447de0a7"
-          ]
+          "targets": ["ou_0bc1d8ae796b067c60479ce1447de0a7"]
         }
       },
       "miaoda-keepalive": {

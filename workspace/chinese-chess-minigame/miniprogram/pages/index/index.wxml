@@ -1,0 +1,6 @@
+<view class="card">
+  <view class="title">{{title}}</view>
+  <view class="subtitle">{{subtitle}}</view>
+  <button class="button-primary" bindtap="goGame">开始对局</button>
+  <button bindtap="goTutorial">查看规则引导</button>
+</view>

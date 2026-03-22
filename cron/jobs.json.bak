@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "jobs": [
+    {
+      "id": "15492d5f-1860-4cc9-9267-daeb7944a4a6",
+      "agentId": "main",
+      "sessionKey": "agent:main:feishu:direct:ou_0bc1d8ae796b067c60479ce1447de0a7",
+      "name": "检查《中国象棋微信小游戏》待办清单",
+      "enabled": true,
+      "createdAtMs": 1774154611020,
+      "updatedAtMs": 1774169651560,
+      "schedule": {
+        "kind": "every",
+        "everyMs": 600000,
+        "anchorMs": 1774154611020
+      },
+      "sessionTarget": "main",
+      "wakeMode": "now",
+      "payload": {
+        "kind": "systemEvent",
+        "text": "提醒：现在该检查《中国象棋微信小游戏》的待办清单了。先看 /home/gem/workspace/agent/workspace/memory/2026-03-22.md 中的清单，再判断是否有完成了“重大进展”项。若完成了严格回合控制、双方身份/side 校验、断线重连同步一致性中的任意一项并已验证通过，就向用户报告这一条进展；如果只是一般工作完成，只记录不要反复汇报；如果没有新进展，就静默。"
+      },
+      "state": {
+        "nextRunAtMs": 1774170211091,
+        "lastRunAtMs": 1774169611091,
+        "lastRunStatus": "ok",
+        "lastStatus": "ok",
+        "lastDurationMs": 40469,
+        "lastDeliveryStatus": "not-requested",
+        "consecutiveErrors": 0
+      }
+    }
+  ]
+}

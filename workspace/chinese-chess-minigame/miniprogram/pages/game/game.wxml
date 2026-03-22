@@ -1,0 +1,83 @@
+<view class="card">
+  <view class="section-title">{{state.message}}</view>
+  <view class="meta">模式：{{state.mode}} · 当前：{{state.side}} · 步数：{{state.moveCount}}</view>
+  <view class="hint-box">{{hintText}}</view>
+
+  <view class="status-box">
+    <view class="status-line">{{connectionStatus}}</view>
+    <view class="status-line">协议状态：{{matchRoom.state}} · 回合：{{matchRoom.turn}} · 序号：{{matchRoom.sequence}}</view>
+    <view class="status-line">信令地址：{{signalUrl || '未填写'}}</view>
+  </view>
+
+  <view class="board-shell">
+    <view class="board-grid">
+      <block wx:for="{{boardRows}}" wx:for-item="row" wx:key="y">
+        <view class="board-row">
+          <block wx:for="{{row.cells}}" wx:for-item="cell" wx:key="key">
+            <view
+              class="board-cell {{cell.selected ? 'cell-selected' : ''}} {{cell.legalTarget ? 'cell-legal' : ''}} {{cell.hintTarget ? 'cell-hint' : ''}} {{cell.syncTarget ? 'cell-sync' : ''}} {{cell.lastMove ? 'cell-lastmove' : ''}}"
+              data-x="{{cell.x}}"
+              data-y="{{cell.y}}"
+              bindtap="onCellTap"
+            >
+              <view wx:if="{{cell.legalTarget && !cell.piece}}" class="legal-dot"></view>
+              <view wx:if="{{cell.piece}}" class="piece piece-{{cell.piece.side}} {{cell.selected ? 'piece-selected' : ''}}">
+                {{cell.text}}
+              </view>
+            </view>
+          </block>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <view class="actions">
+    <button class="button-primary" bindtap="startGame">重新开始</button>
+    <button bindtap="undoMove">悔棋</button>
+    <button bindtap="showHint">提示</button>
+    <button bindtap="goResult">去结算页</button>
+  </view>
+</view>
+
+<view class="card">
+  <view class="section-title">信令连接</view>
+  <view class="actions signal-actions">
+    <input class="signal-input" placeholder="wss://..." value="{{signalUrl}}" bindinput="onSignalUrlInput" />
+    <button bindtap="connectSignal">连接</button>
+    <button bindtap="disconnectSignal">断开</button>
+  </view>
+  <view class="actions">
+    <button bindtap="sendQuickHeartbeat">发心跳</button>
+    <button bindtap="sendQuickSync">发同步</button>
+    <button bindtap="sendQuickAck">发 ACK</button>
+    <button bindtap="sendQuickDrawOffer">提和</button>
+    <button bindtap="sendQuickDrawResponse">同意平局</button>
+    <button bindtap="sendQuickResign">认输</button>
+    <button bindtap="sendQuickError">发异常</button>
+  </view>
+</view>
+
+<view class="card">
+  <view class="section-title">在线匹配模拟面板</view>
+  <view class="actions">
+    <button bindtap="resetMatchRoom">重置房间</button>
+    <button bindtap="simulateOnlineRequest">发起匹配</button>
+    <button bindtap="simulateOnlineAccept">接受匹配</button>
+    <button bindtap="simulateOnlineSync">同步局面</button>
+    <button bindtap="simulateOnlineHeartbeat">心跳</button>
+    <button bindtap="simulateOnlineDrawOffer">提和</button>
+    <button bindtap="simulateOnlineDrawAccept">同意平局</button>
+    <button bindtap="simulateOnlineResign">认输</button>
+    <button bindtap="simulateOnlineError">模拟异常</button>
+  </view>
+</view>
+
+<view class="card">
+  <view class="section-title">信令日志</view>
+  <view wx:for="{{logLines}}" wx:key="*this" class="log-line">{{item}}</view>
+</view>
+
+<view class="card">
+  <view class="section-title">提示说明</view>
+  <view wx:for="{{tips}}" wx:key="*this">- {{item}}</view>
+</view>

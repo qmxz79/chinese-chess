@@ -1,0 +1,26 @@
+<view class="card">
+  <view class="section-title">新手引导</view>
+  <view wx:for="{{steps}}" wx:key="*this">{{index + 1}}. {{item}}</view>
+</view>
+
+<view class="card">
+  <view class="section-title">在线匹配协议抽象预览</view>
+  <view class="meta">版本：{{protocolVersion}}</view>
+  <view wx:for="{{eventTypes}}" wx:key="*this">- {{item}}</view>
+
+  <view class="actions">
+    <button class="button-primary" bindtap="injectRequest">请求</button>
+    <button bindtap="injectAccept">接受</button>
+    <button bindtap="injectSync">同步</button>
+    <button bindtap="injectAck">ACK</button>
+    <button bindtap="injectHeartbeat">心跳</button>
+    <button bindtap="injectDraw">提和</button>
+    <button bindtap="acceptDraw">同意平局</button>
+    <button bindtap="resign">认输</button>
+    <button bindtap="raiseError">异常</button>
+    <button bindtap="resetRoom">重置</button>
+  </view>
+
+  <view class="meta">房间状态：{{room.state}} · 回合：{{room.turn}} · 是否可走：{{sampleSummary.canSendMove}}</view>
+  <view class="meta">摘要：{{sampleSummary.state}} / {{sampleSummary.turn}}</view>
+</view>

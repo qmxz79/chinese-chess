@@ -1,0 +1,42 @@
+<view class="card">
+  <view class="section-title">{{winnerText}}</view>
+  <view class="summary">{{summary}}</view>
+  <view class="meta">复盘：{{replayTitle}}</view>
+
+  <view class="actions">
+    <button class="button-primary" bindtap="playAgain">再来一局</button>
+    <button bindtap="goHome">返回首页</button>
+  </view>
+</view>
+
+<view class="card">
+  <view class="section-title">复盘棋盘</view>
+  <view class="board-shell">
+    <view class="board-grid">
+      <block wx:for="{{replayBoardRows}}" wx:for-item="row" wx:key="y">
+        <view class="board-row">
+          <block wx:for="{{row.cells}}" wx:for-item="cell" wx:key="key">
+            <view class="board-cell">
+              <view wx:if="{{cell.piece}}" class="piece piece-{{cell.piece.side}}">{{cell.text}}</view>
+            </view>
+          </block>
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <view class="actions">
+    <button bindtap="jumpToStart">回到开局</button>
+    <button bindtap="prevStep">上一步</button>
+    <button bindtap="nextStep">下一步</button>
+    <button bindtap="jumpToEnd">到结尾</button>
+  </view>
+</view>
+
+<view class="card">
+  <view class="section-title">走子列表</view>
+  <view wx:if="{{movePreview.length}}">
+    <view wx:for="{{movePreview}}" wx:key="index">{{item.label}}</view>
+  </view>
+  <view wx:else>暂无走子记录</view>
+</view>

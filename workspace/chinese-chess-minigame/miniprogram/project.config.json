@@ -1,0 +1,6 @@
+{
+  "miniprogramRoot": "./",
+  "projectname": "chinese-chess-minigame",
+  "compileType": "miniprogram",
+  "libVersion": "3.5.0"
+}

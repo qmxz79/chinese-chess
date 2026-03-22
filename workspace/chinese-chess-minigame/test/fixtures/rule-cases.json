@@ -1,0 +1,114 @@
+[
+  {
+    "name": "initial board",
+    "board": {
+      "currentSide": "red",
+      "pieces": [
+        { "id": "b-r1", "type": "rook", "side": "black", "x": 0, "y": 0 },
+        { "id": "b-h1", "type": "horse", "side": "black", "x": 1, "y": 0 },
+        { "id": "b-e1", "type": "elephant", "side": "black", "x": 2, "y": 0 },
+        { "id": "b-a1", "type": "advisor", "side": "black", "x": 3, "y": 0 },
+        { "id": "b-g", "type": "general", "side": "black", "x": 4, "y": 0 },
+        { "id": "b-a2", "type": "advisor", "side": "black", "x": 5, "y": 0 },
+        { "id": "b-e2", "type": "elephant", "side": "black", "x": 6, "y": 0 },
+        { "id": "b-h2", "type": "horse", "side": "black", "x": 7, "y": 0 },
+        { "id": "b-r2", "type": "rook", "side": "black", "x": 8, "y": 0 },
+        { "id": "b-c1", "type": "cannon", "side": "black", "x": 1, "y": 2 },
+        { "id": "b-c2", "type": "cannon", "side": "black", "x": 7, "y": 2 },
+        { "id": "b-s1", "type": "soldier", "side": "black", "x": 0, "y": 3 },
+        { "id": "b-s2", "type": "soldier", "side": "black", "x": 2, "y": 3 },
+        { "id": "b-s3", "type": "soldier", "side": "black", "x": 4, "y": 3 },
+        { "id": "b-s4", "type": "soldier", "side": "black", "x": 6, "y": 3 },
+        { "id": "b-s5", "type": "soldier", "side": "black", "x": 8, "y": 3 },
+        { "id": "r-r1", "type": "rook", "side": "red", "x": 0, "y": 9 },
+        { "id": "r-h1", "type": "horse", "side": "red", "x": 1, "y": 9 },
+        { "id": "r-e1", "type": "elephant", "side": "red", "x": 2, "y": 9 },
+        { "id": "r-a1", "type": "advisor", "side": "red", "x": 3, "y": 9 },
+        { "id": "r-g", "type": "general", "side": "red", "x": 4, "y": 9 },
+        { "id": "r-a2", "type": "advisor", "side": "red", "x": 5, "y": 9 },
+        { "id": "r-e2", "type": "elephant", "side": "red", "x": 6, "y": 9 },
+        { "id": "r-h2", "type": "horse", "side": "red", "x": 7, "y": 9 },
+        { "id": "r-r2", "type": "rook", "side": "red", "x": 8, "y": 9 },
+        { "id": "r-c1", "type": "cannon", "side": "red", "x": 1, "y": 7 },
+        { "id": "r-c2", "type": "cannon", "side": "red", "x": 7, "y": 7 },
+        { "id": "r-s1", "type": "soldier", "side": "red", "x": 0, "y": 6 },
+        { "id": "r-s2", "type": "soldier", "side": "red", "x": 2, "y": 6 },
+        { "id": "r-s3", "type": "soldier", "side": "red", "x": 4, "y": 6 },
+        { "id": "r-s4", "type": "soldier", "side": "red", "x": 6, "y": 6 },
+        { "id": "r-s5", "type": "soldier", "side": "red", "x": 8, "y": 6 }
+      ],
+      "expect": {
+        "pieceCount": 32,
+        "currentSide": "red"
+      }
+    }
+  },
+  {
+    "name": "rook clear file",
+    "board": {
+      "currentSide": "red",
+      "pieces": [
+        { "id": "r-g", "type": "general", "side": "red", "x": 4, "y": 9 },
+        { "id": "b-g", "type": "general", "side": "black", "x": 4, "y": 0 },
+        { "id": "r-r", "type": "rook", "side": "red", "x": 0, "y": 9 },
+        { "id": "r-block", "type": "soldier", "side": "red", "x": 4, "y": 5 }
+      ],
+      "expect": {
+        "rookMoves": [
+          { "x": 0, "y": 8 },
+          { "x": 0, "y": 7 },
+          { "x": 0, "y": 6 }
+        ]
+      }
+    }
+  },
+  {
+    "name": "soldier after river",
+    "board": {
+      "currentSide": "red",
+      "pieces": [
+        { "id": "r-g", "type": "general", "side": "red", "x": 3, "y": 9 },
+        { "id": "b-g", "type": "general", "side": "black", "x": 5, "y": 0 },
+        { "id": "r-s", "type": "soldier", "side": "red", "x": 4, "y": 4 }
+      ],
+      "expect": {
+        "soldierMoves": [
+          { "x": 4, "y": 3 },
+          { "x": 3, "y": 4 },
+          { "x": 5, "y": 4 }
+        ]
+      }
+    }
+  },
+  {
+    "name": "flying general",
+    "board": {
+      "currentSide": "red",
+      "pieces": [
+        { "id": "r-g", "type": "general", "side": "red", "x": 4, "y": 9 },
+        { "id": "b-g", "type": "general", "side": "black", "x": 4, "y": 0 }
+      ],
+      "expect": {
+        "redInCheck": true,
+        "blackInCheck": true
+      }
+    }
+  },
+  {
+    "name": "cannon capture",
+    "board": {
+      "currentSide": "red",
+      "pieces": [
+        { "id": "r-g", "type": "general", "side": "red", "x": 4, "y": 9 },
+        { "id": "b-g", "type": "general", "side": "black", "x": 4, "y": 0 },
+        { "id": "r-c", "type": "cannon", "side": "red", "x": 4, "y": 7 },
+        { "id": "b-s", "type": "soldier", "side": "black", "x": 4, "y": 4 },
+        { "id": "r-screen", "type": "soldier", "side": "red", "x": 4, "y": 6 }
+      ],
+      "expect": {
+        "cannonCapture": { "x": 4, "y": 4 }
+      }
+    }
+  }
+]
+

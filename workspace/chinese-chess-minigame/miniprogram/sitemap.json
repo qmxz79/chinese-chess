@@ -1,0 +1,8 @@
+{
+  "rules": [
+    { "action": "allow", "page": "pages/index/index" },
+    { "action": "allow", "page": "pages/game/game" },
+    { "action": "allow", "page": "pages/result/result" },
+    { "action": "allow", "page": "pages/tutorial/tutorial" }
+  ]
+}

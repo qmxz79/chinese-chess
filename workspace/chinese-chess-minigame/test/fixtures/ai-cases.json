@@ -1,0 +1,19 @@
+[
+  {
+    "name": "tactical move exists",
+    "side": "red",
+    "depth": 1,
+    "board": {
+      "currentSide": "red",
+      "pieces": [
+        { "id": "r-g", "type": "general", "side": "red", "x": 4, "y": 9 },
+        { "id": "b-g", "type": "general", "side": "black", "x": 4, "y": 0 },
+        { "id": "r-r", "type": "rook", "side": "red", "x": 4, "y": 8 },
+        { "id": "b-s", "type": "soldier", "side": "black", "x": 4, "y": 5 }
+      ]
+    },
+    "expect": {
+      "hasLegalMove": true
+    }
+  }
+]

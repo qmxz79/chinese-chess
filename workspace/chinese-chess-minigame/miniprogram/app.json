@@ -1,0 +1,14 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/game/game",
+    "pages/result/result",
+    "pages/tutorial/tutorial"
+  ],
+  "window": {
+    "navigationBarTitleText": "中国象棋",
+    "navigationBarBackgroundColor": "#f6e8c3",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f8f4e8"
+  }
+}
