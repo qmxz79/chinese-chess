@@ -1,4 +1,5 @@
 .section-title { font-size: 32rpx; font-weight: 600; margin-bottom: 16rpx; }
+.section-subtitle { font-size: 28rpx; font-weight: 600; margin-bottom: 12rpx; color: #6b4e1f; }
 .meta { color: #666; margin-bottom: 12rpx; }
 .hint-box {
   margin-bottom: 18rpx;
@@ -19,8 +20,17 @@
   font-size: 24rpx;
   line-height: 1.6;
 }
+.room-panel {
+  margin-bottom: 18rpx;
+  padding: 14rpx 16rpx;
+  border-radius: 16rpx;
+  background: rgba(255, 255, 255, 0.5);
+}
 .signal-actions {
   align-items: center;
+}
+.room-row {
+  gap: 12rpx;
 }
 .signal-input {
   flex: 1;

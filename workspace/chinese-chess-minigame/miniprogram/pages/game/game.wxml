@@ -6,7 +6,18 @@
   <view class="status-box">
     <view class="status-line">{{connectionStatus}}</view>
     <view class="status-line">协议状态：{{matchRoom.state}} · 回合：{{matchRoom.turn}} · 序号：{{matchRoom.sequence}}</view>
+    <view class="status-line">{{roomStatusText}}</view>
     <view class="status-line">信令地址：{{signalUrl || '未填写'}}</view>
+  </view>
+
+  <view class="room-panel">
+    <view class="section-subtitle">联机房间</view>
+    <view class="actions signal-actions room-row">
+      <input class="signal-input" placeholder="输入房间号" value="{{roomInputValue}}" bindinput="onRoomInput" />
+      <button bindtap="createOnlineRoom">创建房间</button>
+      <button bindtap="joinOnlineRoom">加入房间</button>
+      <button bindtap="copyRoomId">复制房间号</button>
+    </view>
   </view>
 
   <view class="board-shell">
@@ -58,17 +69,17 @@
 </view>
 
 <view class="card">
-  <view class="section-title">在线匹配模拟面板</view>
+  <view class="section-title">调试与模拟</view>
   <view class="actions">
     <button bindtap="resetMatchRoom">重置房间</button>
-    <button bindtap="simulateOnlineRequest">发起匹配</button>
-    <button bindtap="simulateOnlineAccept">接受匹配</button>
-    <button bindtap="simulateOnlineSync">同步局面</button>
-    <button bindtap="simulateOnlineHeartbeat">心跳</button>
-    <button bindtap="simulateOnlineDrawOffer">提和</button>
-    <button bindtap="simulateOnlineDrawAccept">同意平局</button>
-    <button bindtap="simulateOnlineResign">认输</button>
-    <button bindtap="simulateOnlineError">模拟异常</button>
+    <button bindtap="simulateIncomingRequest">模拟 request</button>
+    <button bindtap="simulateIncomingAccept">模拟 accept</button>
+    <button bindtap="simulateIncomingSync">模拟 sync</button>
+    <button bindtap="simulateIncomingHeartbeat">模拟 heartbeat</button>
+    <button bindtap="simulateIncomingDrawOffer">模拟提和</button>
+    <button bindtap="simulateIncomingDrawAccept">模拟和棋通过</button>
+    <button bindtap="simulateIncomingResign">模拟认输</button>
+    <button bindtap="simulateIncomingError">模拟异常</button>
   </view>
 </view>
 

@@ -1,6 +1,7 @@
 const { createGameState } = require('../../utils/game-state');
 const {
   Side,
+  oppositeSide,
   createInitialBoard,
   cloneBoard,
   getPieceAt,
@@ -29,6 +30,42 @@ const {
   saveSignalUrl,
   loadSignalUrl,
 } = require('../../utils/match-store');
+
+function generateRoomId() {
+  return `R${Date.now().toString(36).slice(-6).toUpperCase()}`;
+}
+
+function generatePlayerId() {
+  return `P${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.toUpperCase();
+}
+
+function normalizeRoomId(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]/g, '')
+    .slice(0, 24);
+}
+
+function buildRoomStatus(room) {
+  if (!room || !room.roomId) return '未进入房间';
+  const opponent = room.opponentId || '待分配';
+  return `房间号：${room.roomId} · 我方：${room.selfSide || '-'} · 对手：${opponent} · 身份：${room.selfId || '-'}`;
+}
+
+function createAcceptPayload(localRoom, envelope) {
+  const hostPreferredSide = envelope && envelope.payload && isSideValue(envelope.payload.desiredSide)
+    ? envelope.payload.desiredSide
+    : Side.RED;
+  const guestSide = oppositeSide(hostPreferredSide);
+  return {
+    roomId: (envelope && envelope.roomId) || localRoom.roomId,
+    senderId: localRoom.selfId,
+    opponentId: (envelope && envelope.senderId) || localRoom.opponentId,
+    selfSide: guestSide,
+    seed: envelope && envelope.payload ? envelope.payload.seed : localRoom.seed,
+  };
+}
 
 function coordKey(x, y) {
   return `${x}:${y}`;
@@ -103,6 +140,58 @@ function cloneMove(move) {
     : null;
 }
 
+function isSideValue(side) {
+  return side === Side.RED || side === Side.BLACK;
+}
+
+function getMoveSequence(board) {
+  return board && Array.isArray(board.moveHistory) ? board.moveHistory.length : 0;
+}
+
+function sameMove(a, b) {
+  if (!a || !b || !a.from || !a.to || !b.from || !b.to) return false;
+  return a.pieceId === b.pieceId
+    && a.from.x === b.from.x
+    && a.from.y === b.from.y
+    && a.to.x === b.to.x
+    && a.to.y === b.to.y;
+}
+
+function normalizeTurn(side, fallback = Side.RED) {
+  return isSideValue(side) ? side : fallback;
+}
+
+function legalMoveExists(board, side, move) {
+  if (!board || !move || !isSideValue(side)) return false;
+  return getLegalMoves(board, side).some((candidate) => sameMove(candidate, move));
+}
+
+function safeReplayBoard(boardSnapshot, moveLog) {
+  const history = Array.isArray(moveLog) ? moveLog.filter(Boolean).map(cloneMove) : [];
+  if (!history.length) {
+    return {
+      board: boardSnapshot && boardSnapshot.pieces ? cloneBoard(boardSnapshot) : createInitialBoard(),
+      history: [],
+      usedReplay: false,
+    };
+  }
+
+  try {
+    return {
+      board: replayMoves(createInitialBoard(), history),
+      history,
+      usedReplay: true,
+    };
+  } catch (error) {
+    return {
+      board: boardSnapshot && boardSnapshot.pieces ? cloneBoard(boardSnapshot) : createInitialBoard(),
+      history: [],
+      usedReplay: false,
+      error,
+    };
+  }
+}
+
 Page({
   data: {
     state: createGameState(),
@@ -113,6 +202,8 @@ Page({
     hintMove: null,
     hintText: '点击“提示”获取推荐走法',
     matchRoom: createMatchRoom(),
+    roomStatusText: '未进入房间',
+    roomInputValue: '',
     connectionStatus: '未连接在线房间',
     transportStatus: TransportStatus.IDLE,
     signalUrl: loadSignalUrl(),
@@ -132,6 +223,12 @@ Page({
     this.localMatchId = `local-${Date.now()}`;
     const storedRoom = loadMatchRoom();
     this.matchRoom = storedRoom || createMatchRoom({ mode: MatchMode.ONLINE, state: MatchState.IDLE });
+    if (!this.matchRoom.selfId) {
+      this.matchRoom = {
+        ...this.matchRoom,
+        selfId: generatePlayerId(),
+      };
+    }
     const initialSignalUrl = this.data.signalUrl;
 
     this.signalClient = createMatchSignalClient({
@@ -145,9 +242,18 @@ Page({
 
     this.setData({
       matchRoom: this.matchRoom,
+      roomStatusText: buildRoomStatus(this.matchRoom),
+      roomInputValue: this.matchRoom.roomId || '',
       transportStatus: this.signalClient.getTransportState().status,
       connectionStatus: this.describeConnection(this.matchRoom, this.signalClient.getTransportState().status),
     });
+
+    if (this.matchRoom && this.matchRoom.snapshot) {
+      this.syncBoardFromRoom(this.matchRoom.snapshot, this.matchRoom.turn, this.matchRoom.sequence, this.matchRoom.moveLog, {
+        reason: 'restore',
+        allowOlder: true,
+      });
+    }
 
     this.refreshBoard('游戏页已就绪');
   },
@@ -170,7 +276,12 @@ Page({
   persistMatchRoom(room) {
     this.matchRoom = room;
     saveMatchRoom(room);
-    this.setData({ matchRoom: room, connectionStatus: this.describeConnection(room, this.data.transportStatus) });
+    this.setData({
+      matchRoom: room,
+      roomStatusText: buildRoomStatus(room),
+      roomInputValue: room && room.roomId ? room.roomId : this.data.roomInputValue,
+      connectionStatus: this.describeConnection(room, this.data.transportStatus),
+    });
   },
 
   onTransportChange(transport) {
@@ -181,15 +292,56 @@ Page({
     if (transport.lastError) {
       this.appendLog(`信令状态：${transport.lastError.code || 'ERROR'}`);
     }
+    if (
+      transport.status === TransportStatus.OPEN
+      && this.isOnlineMode()
+      && this.matchRoom
+      && this.matchRoom.snapshot
+      && this.matchRoom.roomId
+      && this.matchRoom.state !== MatchState.IDLE
+      && this.matchRoom.state !== MatchState.MATCHING
+    ) {
+      this.signalClient.sendSync(cloneBoard(this.data.board), this.data.board.currentSide, getMoveSequence(this.data.board));
+      this.appendLog('连接恢复后已主动同步本地局面');
+    }
   },
 
   onRoomChange(room, envelope) {
-    this.persistMatchRoom(room);
+    if (envelope && envelope.type === MatchEventType.MOVE) {
+      return;
+    }
+
+    let nextRoom = room;
+    if (
+      envelope
+      && this.matchRoom
+      && [
+        MatchEventType.ACK,
+        MatchEventType.HEARTBEAT,
+        MatchEventType.DRAW_OFFER,
+        MatchEventType.DRAW_RESPONSE,
+        MatchEventType.RESIGN,
+        MatchEventType.ERROR,
+      ].includes(envelope.type)
+    ) {
+      nextRoom = {
+        ...room,
+        turn: this.matchRoom.turn,
+        sequence: this.matchRoom.sequence,
+        snapshot: room.snapshot || this.matchRoom.snapshot,
+        moveLog: Array.isArray(this.matchRoom.moveLog) ? [...this.matchRoom.moveLog] : [],
+      };
+    }
+
+    this.persistMatchRoom(nextRoom);
     if (envelope) {
       this.appendLog(`房间更新：${envelope.type}`);
     }
-    if (room.snapshot && room.state === MatchState.SYNCHRONIZING) {
-      this.syncBoardFromRoom(room.snapshot, room.turn, room.sequence);
+    if (nextRoom.snapshot && nextRoom.state === MatchState.SYNCHRONIZING) {
+      const incomingMoveLog = envelope && envelope.payload && Array.isArray(envelope.payload.moveLog)
+        ? envelope.payload.moveLog
+        : null;
+      this.syncBoardFromRoom(nextRoom.snapshot, nextRoom.turn, nextRoom.sequence, incomingMoveLog);
     }
   },
 
@@ -254,25 +406,95 @@ Page({
     return this.data.board.status === 'playing' || this.data.board.status === 'check';
   },
 
+  getLocalTurnBlockReason() {
+    if (!this.isOnlineMode()) return '';
+    if (!this.matchRoom || !isSideValue(this.matchRoom.selfSide)) return '当前在线房间缺少本方身份';
+    if (this.matchRoom.state !== MatchState.PLAYING) return '当前房间还没有进入对局';
+    if (this.matchRoom.turn !== this.matchRoom.selfSide) return '还没轮到你';
+    if (this.data.board.currentSide !== this.matchRoom.selfSide) {
+      return '当前棋盘回合与房间状态不一致，等待同步';
+    }
+    return '';
+  },
+
   isOnlineMode() {
     return this.matchRoom && this.matchRoom.mode === MatchMode.ONLINE;
   },
 
   isMyTurn() {
-    if (!this.isOnlineMode()) return true;
-    return this.matchRoom.state === MatchState.PLAYING && this.matchRoom.turn === this.matchRoom.selfSide;
+    return !this.getLocalTurnBlockReason();
+  },
+
+  getExpectedOpponentSide() {
+    if (!this.matchRoom || !isSideValue(this.matchRoom.selfSide)) return null;
+    return isSideValue(this.matchRoom.opponentSide)
+      ? this.matchRoom.opponentSide
+      : oppositeSide(this.matchRoom.selfSide);
+  },
+
+  isKnownOpponentEnvelope(envelope) {
+    if (!this.matchRoom || !envelope) return false;
+    if (envelope.senderId && this.matchRoom.selfId && envelope.senderId === this.matchRoom.selfId) return false;
+    if (this.matchRoom.opponentId && envelope.senderId && envelope.senderId !== this.matchRoom.opponentId) return false;
+    return true;
+  },
+
+  shouldAcceptEnvelope(envelope) {
+    if (!this.matchRoom || !envelope) return false;
+    if (envelope.roomId && this.matchRoom.roomId && envelope.roomId !== this.matchRoom.roomId) {
+      this.appendLog(`忽略其他房间消息：${envelope.type}`);
+      return false;
+    }
+    if (envelope.senderId && this.matchRoom.selfId && envelope.senderId === this.matchRoom.selfId) {
+      return false;
+    }
+
+    switch (envelope.type) {
+      case MatchEventType.REQUEST:
+        return true;
+      case MatchEventType.ACCEPT:
+        if (this.matchRoom.opponentId && envelope.senderId && envelope.senderId !== this.matchRoom.opponentId) {
+          this.appendLog('忽略非当前对手的 accept');
+          return false;
+        }
+        if (envelope.payload && envelope.payload.opponentId && this.matchRoom.selfId && envelope.payload.opponentId !== this.matchRoom.selfId) {
+          this.appendLog('忽略发给其他玩家的 accept');
+          return false;
+        }
+        if (envelope.payload && envelope.payload.selfSide && !isSideValue(envelope.payload.selfSide)) {
+          this.appendLog('忽略非法 side 的 accept');
+          return false;
+        }
+        return true;
+      case MatchEventType.MOVE:
+      case MatchEventType.SYNC:
+      case MatchEventType.ACK:
+      case MatchEventType.HEARTBEAT:
+      case MatchEventType.DRAW_OFFER:
+      case MatchEventType.DRAW_RESPONSE:
+      case MatchEventType.RESIGN:
+      case MatchEventType.ERROR:
+        if (!this.isKnownOpponentEnvelope(envelope)) {
+          this.appendLog(`忽略非当前对手消息：${envelope.type}`);
+          return false;
+        }
+        return true;
+      default:
+        return true;
+    }
   },
 
   commitMove(move, message = '已落子') {
     if (!move) return;
     if (!this.canActOnBoard()) return;
     if (this.isOnlineMode()) {
-      if (this.matchRoom.state !== MatchState.PLAYING) {
-        this.appendLog('当前房间还没有进入对局');
+      const blockedReason = this.getLocalTurnBlockReason();
+      if (blockedReason) {
+        this.appendLog(blockedReason);
         return;
       }
-      if (this.matchRoom.turn !== this.matchRoom.selfSide) {
-        this.appendLog('还没轮到你');
+      if (!legalMoveExists(this.data.board, this.matchRoom.selfSide, move)) {
+        this.appendLog('已拦截非法本地走子');
         return;
       }
     }
@@ -413,9 +635,10 @@ Page({
       this.refreshBoard('对局已结束');
       return;
     }
-    if (this.isOnlineMode() && !this.isMyTurn()) {
-      this.setData({ hintMove: null, hintText: '当前不是你的回合' });
-      this.refreshBoard('当前不是你的回合');
+    const blockedReason = this.getLocalTurnBlockReason();
+    if (blockedReason) {
+      this.setData({ hintMove: null, hintText: blockedReason });
+      this.refreshBoard(blockedReason);
       return;
     }
 
@@ -441,7 +664,12 @@ Page({
 
   onCellTap(e) {
     if (!this.canActOnBoard()) return;
-    if (this.isOnlineMode() && !this.isMyTurn()) return;
+    const blockedReason = this.getLocalTurnBlockReason();
+    if (blockedReason) {
+      this.setData({ selectedPieceId: null, legalMoves: [], hintMove: null, hintText: blockedReason });
+      this.refreshBoard(blockedReason, [], null, this.data.syncMarkers);
+      return;
+    }
 
     const x = Number(e.currentTarget.dataset.x);
     const y = Number(e.currentTarget.dataset.y);
@@ -495,12 +723,73 @@ Page({
     saveSignalUrl(signalUrl);
     if (this.signalClient) {
       this.signalClient.setHandlers({
-        onRoomChange: (room, envelope) => this.onRoomChange(room, envelope),
-        onTransportChange: (transport) => this.onTransportChange(transport),
-        onEnvelope: (envelope) => this.handleSignalEnvelope(envelope),
-        onError: (error) => this.appendLog(`错误：${error.code || 'UNKNOWN'} ${error.message || ''}`.trim()),
+        roomChange: (room, envelope) => this.onRoomChange(room, envelope),
+        transportChange: (transport) => this.onTransportChange(transport),
+        envelope: (envelope) => this.handleSignalEnvelope(envelope),
+        error: (error) => this.appendLog(`错误：${error.code || 'UNKNOWN'} ${error.message || ''}`.trim()),
       });
     }
+  },
+
+  onRoomInput(e) {
+    this.setData({ roomInputValue: normalizeRoomId(e.detail.value || '') });
+  },
+
+  createOnlineRoom() {
+    const roomId = generateRoomId();
+    const room = createMatchRoom({
+      roomId,
+      selfId: this.matchRoom && this.matchRoom.selfId ? this.matchRoom.selfId : generatePlayerId(),
+      selfSide: Side.RED,
+      mode: MatchMode.ONLINE,
+      state: MatchState.MATCHING,
+      turn: Side.RED,
+    });
+    this.persistMatchRoom(room);
+    this.setData({ syncMarkers: [], roomInputValue: roomId });
+    this.appendLog(`已创建房间 ${roomId}`);
+    this.refreshBoard(`已创建房间 ${roomId}，等待对手加入`);
+    if (this.signalClient && this.data.transportStatus === TransportStatus.OPEN) {
+      this.signalClient.sendMatchRequest(room.selfSide, room.seed);
+      this.appendLog('已向信令服务发送建房请求');
+    }
+  },
+
+  joinOnlineRoom() {
+    const roomId = normalizeRoomId(this.data.roomInputValue);
+    if (!roomId) {
+      this.appendLog('请输入房间号');
+      this.refreshBoard('请输入房间号');
+      return;
+    }
+    const room = createMatchRoom({
+      roomId,
+      selfId: this.matchRoom && this.matchRoom.selfId ? this.matchRoom.selfId : generatePlayerId(),
+      selfSide: Side.BLACK,
+      mode: MatchMode.ONLINE,
+      state: MatchState.MATCHING,
+      turn: Side.RED,
+    });
+    this.persistMatchRoom(room);
+    this.setData({ syncMarkers: [], roomInputValue: roomId });
+    this.appendLog(`已加入房间 ${roomId}，等待房主确认`);
+    this.refreshBoard(`已加入房间 ${roomId}，等待房主确认并分配先后手`);
+    if (this.signalClient && this.data.transportStatus === TransportStatus.OPEN) {
+      this.signalClient.sendMatchRequest(room.selfSide, room.seed);
+      this.appendLog('已向信令服务发送入房请求');
+    }
+  },
+
+  copyRoomId() {
+    const roomId = this.matchRoom && this.matchRoom.roomId;
+    if (!roomId) {
+      this.appendLog('当前没有房间号可复制');
+      return;
+    }
+    if (typeof wx !== 'undefined' && typeof wx.setClipboardData === 'function') {
+      wx.setClipboardData({ data: roomId });
+    }
+    this.appendLog(`已复制房间号 ${roomId}`);
   },
 
   sendRawEnvelope(sent) {
@@ -542,30 +831,54 @@ Page({
 
   handleSignalEnvelope(envelope) {
     if (!envelope || !envelope.type) return;
-    if (envelope.roomId && this.matchRoom && this.matchRoom.roomId && envelope.roomId !== this.matchRoom.roomId) {
-      this.appendLog(`忽略其他房间消息：${envelope.type}`);
-      return;
-    }
-    if (this.matchRoom && envelope.senderId && this.matchRoom.selfId && envelope.senderId === this.matchRoom.selfId) {
+    if (!this.shouldAcceptEnvelope(envelope)) {
       return;
     }
 
     this.appendLog(`收到 ${envelope.type}`);
 
     switch (envelope.type) {
-      case MatchEventType.REQUEST: {
-        const nextRoom = applyMatchEvent(this.matchRoom, envelope);
-        this.persistMatchRoom(nextRoom);
-        break;
-      }
-      case MatchEventType.ACCEPT: {
-        const nextRoom = applyMatchEvent(this.matchRoom, envelope);
-        this.persistMatchRoom(nextRoom);
-        if (envelope.payload && envelope.payload.board) {
-          this.syncBoardFromRoom(envelope.payload.board, envelope.payload.selfSide || this.matchRoom.selfSide, envelope.payload.moveSeq, envelope.payload.moveLog);
-        } else {
-          this.appendLog('匹配成功，等待同步局面');
+      case MatchEventType.REQUEST:
+        if (this.matchRoom && this.matchRoom.state === MatchState.MATCHING) {
+          const acceptPayload = createAcceptPayload(this.matchRoom, envelope);
+          this.persistMatchRoom({
+            ...this.matchRoom,
+            roomId: acceptPayload.roomId,
+            opponentId: acceptPayload.opponentId,
+            selfSide: acceptPayload.selfSide,
+            opponentSide: oppositeSide(acceptPayload.selfSide),
+            state: MatchState.PLAYING,
+            turn: Side.RED,
+            seed: acceptPayload.seed,
+          });
+          if (this.signalClient && this.data.transportStatus === TransportStatus.OPEN) {
+            this.sendRawEnvelope(this.signalClient.sendMatchAccept(
+              acceptPayload.opponentId,
+              acceptPayload.selfSide,
+              acceptPayload.seed,
+            ));
+          }
+          this.appendLog(`匹配成功：你执${acceptPayload.selfSide === Side.RED ? '红' : '黑'}，对手先后手已确认`);
+          this.refreshBoard(`匹配成功，你执${acceptPayload.selfSide === Side.RED ? '红方' : '黑方'}，${Side.RED === acceptPayload.selfSide ? '你先手' : '对手先手'}`);
         }
+        break;
+      case MatchEventType.ACCEPT: {
+        const assignedSide = envelope.payload && isSideValue(envelope.payload.selfSide)
+          ? envelope.payload.selfSide
+          : this.matchRoom.selfSide;
+        const mySide = oppositeSide(assignedSide);
+        this.persistMatchRoom({
+          ...this.matchRoom,
+          roomId: envelope.roomId || this.matchRoom.roomId,
+          opponentId: envelope.senderId || this.matchRoom.opponentId,
+          selfSide: mySide,
+          opponentSide: assignedSide,
+          state: MatchState.PLAYING,
+          turn: Side.RED,
+          seed: envelope.payload ? envelope.payload.seed : this.matchRoom.seed,
+        });
+        this.appendLog(`匹配成功，当前你执${mySide === Side.RED ? '红' : '黑'}`);
+        this.refreshBoard(`匹配成功，你执${mySide === Side.RED ? '红方' : '黑方'}，${mySide === Side.RED ? '你先手' : '对手先手'}`);
         break;
       }
       case MatchEventType.MOVE:
@@ -574,39 +887,22 @@ Page({
         }
         break;
       case MatchEventType.SYNC:
-        if (envelope.payload && envelope.payload.board) {
-          this.syncBoardFromRoom(envelope.payload.board, envelope.payload.turn, envelope.payload.moveSeq, envelope.payload.moveLog);
-        }
         break;
-      case MatchEventType.ACK: {
-        const nextRoom = applyMatchEvent(this.matchRoom, envelope);
-        this.persistMatchRoom(nextRoom);
+      case MatchEventType.ACK:
         this.appendLog(`收到 ACK #${envelope.payload && envelope.payload.ackSeq ? envelope.payload.ackSeq : 0}`);
         break;
-      }
-      case MatchEventType.HEARTBEAT: {
-        const nextRoom = applyMatchEvent(this.matchRoom, envelope);
-        this.persistMatchRoom(nextRoom);
+      case MatchEventType.HEARTBEAT:
         break;
-      }
-      case MatchEventType.DRAW_OFFER: {
-        const nextRoom = applyMatchEvent(this.matchRoom, envelope);
-        this.persistMatchRoom(nextRoom);
+      case MatchEventType.DRAW_OFFER:
         this.appendLog('对手提和');
         break;
-      }
-      case MatchEventType.DRAW_RESPONSE: {
-        const nextRoom = applyMatchEvent(this.matchRoom, envelope);
-        this.persistMatchRoom(nextRoom);
+      case MatchEventType.DRAW_RESPONSE:
         if (envelope.payload && envelope.payload.accepted) {
           this.appendLog('对手同意平局');
           this.finishAsDraw();
         }
         break;
-      }
-      case MatchEventType.RESIGN: {
-        const nextRoom = applyMatchEvent(this.matchRoom, envelope);
-        this.persistMatchRoom(nextRoom);
+      case MatchEventType.RESIGN:
         this.appendLog('对手认输');
         if (this.data.board.status === 'playing' || this.data.board.status === 'check') {
           const resignedBy = envelope.senderId && this.matchRoom && envelope.senderId === this.matchRoom.selfId
@@ -615,12 +911,8 @@ Page({
           this.finishAsWin(resignedBy === Side.RED ? Side.BLACK : Side.RED, 'resign');
         }
         break;
-      }
-      case MatchEventType.ERROR: {
-        const nextRoom = applyMatchEvent(this.matchRoom, envelope);
-        this.persistMatchRoom(nextRoom);
+      case MatchEventType.ERROR:
         break;
-      }
       default:
         break;
     }
@@ -651,39 +943,101 @@ Page({
   },
 
   syncBoardFromRoom(boardSnapshot, turn, moveSeq, moveLog = null) {
-    const boardSource = boardSnapshot && boardSnapshot.pieces ? boardSnapshot : createInitialBoard();
-    const history = Array.isArray(moveLog) && moveLog.length ? moveLog.filter(Boolean).map(cloneMove) : [];
-    const replayed = history.length ? replayMoves(createInitialBoard(), history) : cloneBoard(boardSource);
-    const nextBoard = cloneBoard(replayed);
-    if (turn) nextBoard.currentSide = turn;
-    if (typeof moveSeq === 'number') {
+    const options = arguments[4] || {};
+    const incomingSeq = typeof moveSeq === 'number' ? moveSeq : null;
+    const currentSeq = getMoveSequence(this.data.board);
+    if (!options.allowOlder && incomingSeq !== null && incomingSeq < currentSeq) {
+      this.appendLog(`忽略过期同步 #${incomingSeq}`);
+      return;
+    }
+
+    const replayed = safeReplayBoard(boardSnapshot, moveLog);
+    const nextBoard = cloneBoard(replayed.board);
+    const replaySide = normalizeTurn(nextBoard.currentSide, Side.RED);
+    const incomingTurn = isSideValue(turn) ? turn : null;
+    if (incomingTurn && incomingTurn !== replaySide) {
+      this.appendLog(`同步回合不一致，已采用棋盘推导回合：${replaySide}`);
+    }
+    nextBoard.currentSide = incomingTurn && incomingTurn === replaySide ? incomingTurn : replaySide;
+    if (incomingSeq !== null) {
       nextBoard.moveHistory = nextBoard.moveHistory.slice(0, moveSeq);
     }
+    const lastHistoryMove = nextBoard.moveHistory[nextBoard.moveHistory.length - 1] || null;
+    if (!sameMove(nextBoard.lastMove, lastHistoryMove)) nextBoard.lastMove = cloneMove(lastHistoryMove);
     this.boardHistory = [];
     this.setData({
       board: nextBoard,
       selectedPieceId: null,
       legalMoves: [],
       hintMove: null,
-      hintText: '已同步房间局面',
+      hintText: options.reason === 'restore' ? '已恢复上次在线局面' : '已同步房间局面',
       syncMarkers: this.extractSyncMarkers(nextBoard),
     });
     if (this.matchRoom) {
+      const nextState = this.matchRoom.state === MatchState.FINISHED
+        ? MatchState.FINISHED
+        : this.canActOnBoardFor(nextBoard)
+          ? MatchState.PLAYING
+          : MatchState.FINISHED;
+      const nextMoveLog = Array.isArray(moveLog)
+        ? replayed.history
+        : Array.isArray(nextBoard.moveHistory)
+          ? nextBoard.moveHistory.map(cloneMove)
+          : [];
       this.persistMatchRoom({
         ...this.matchRoom,
-        state: MatchState.PLAYING,
+        state: nextState,
         turn: nextBoard.currentSide,
-        sequence: typeof moveSeq === 'number' ? moveSeq : history.length || this.matchRoom.sequence,
+        sequence: incomingSeq !== null ? incomingSeq : replayed.history.length || this.matchRoom.sequence,
         lastError: null,
         snapshot: cloneBoard(nextBoard),
-        moveLog: history.length ? history : [...(this.matchRoom.moveLog || [])],
+        moveLog: nextMoveLog,
       });
     }
-    this.refreshBoard('收到同步局面', undefined, undefined, this.data.syncMarkers);
+    if (replayed.error) {
+      this.appendLog('同步 moveLog 回放失败，已回退到 snapshot');
+    }
+    this.refreshBoard(options.reason === 'restore' ? '已恢复在线局面' : '收到同步局面', undefined, undefined, this.data.syncMarkers);
   },
 
   applyRemoteMove(move, seq) {
     if (!move || !move.from || !move.to) return;
+    if (!this.matchRoom || this.matchRoom.state !== MatchState.PLAYING) {
+      this.appendLog('忽略非对局状态下的远端走子');
+      return;
+    }
+    const opponentSide = this.getExpectedOpponentSide();
+    const currentSeq = getMoveSequence(this.data.board);
+    if (!isSideValue(opponentSide)) {
+      this.appendLog('忽略缺少对手 side 的远端走子');
+      return;
+    }
+    if (typeof seq === 'number' && seq <= currentSeq) {
+      this.appendLog(`忽略重复走子 #${seq}`);
+      return;
+    }
+    if (typeof seq === 'number' && seq !== currentSeq + 1) {
+      this.appendLog(`远端走子序号异常 #${seq}，当前应为 #${currentSeq + 1}`);
+      if (this.signalClient) {
+        this.signalClient.sendSync(cloneBoard(this.data.board), this.data.board.currentSide, currentSeq);
+      }
+      return;
+    }
+    if (this.matchRoom.turn !== opponentSide) {
+      this.appendLog('忽略非对手回合的远端走子');
+      return;
+    }
+    if (this.data.board.currentSide !== opponentSide) {
+      this.appendLog('忽略错误回合的远端走子');
+      return;
+    }
+    if (!legalMoveExists(this.data.board, opponentSide, move)) {
+      this.appendLog('远端走子非法，已请求重新同步');
+      if (this.signalClient && this.matchRoom.snapshot) {
+        this.signalClient.sendSync(cloneBoard(this.data.board), this.data.board.currentSide, getMoveSequence(this.data.board));
+      }
+      return;
+    }
     const nextBoard = advanceGame(this.data.board, move);
     this.boardHistory.push(cloneBoard(this.data.board));
     this.setData({
@@ -695,12 +1049,16 @@ Page({
       syncMarkers: this.extractSyncMarkers(nextBoard),
     });
     if (this.matchRoom) {
+      const nextMoveLog = Array.isArray(nextBoard.moveHistory)
+        ? nextBoard.moveHistory.map(cloneMove)
+        : [...(this.matchRoom.moveLog || []), cloneMove(move)];
       this.persistMatchRoom({
         ...this.matchRoom,
         state: nextBoard.status === 'playing' || nextBoard.status === 'check' ? MatchState.PLAYING : MatchState.FINISHED,
         turn: nextBoard.currentSide,
-        sequence: Math.max(this.matchRoom.sequence || 0, seq || 0),
+        sequence: typeof seq === 'number' ? seq : nextBoard.moveHistory.length,
         snapshot: cloneBoard(nextBoard),
+        moveLog: nextMoveLog,
       });
     }
     this.refreshBoard(`收到对手走子${seq ? ` #${seq}` : ''}`, undefined, undefined, this.data.syncMarkers);
@@ -712,16 +1070,20 @@ Page({
     return [board.lastMove.from, board.lastMove.to];
   },
 
+  canActOnBoardFor(board) {
+    return board && (board.status === 'playing' || board.status === 'check');
+  },
+
   resetMatchRoom() {
     const room = createMatchRoom({
-      roomId: 'room-demo-001',
-      selfId: 'local-red',
+      roomId: generateRoomId(),
+      selfId: this.matchRoom && this.matchRoom.selfId ? this.matchRoom.selfId : generatePlayerId(),
       selfSide: Side.RED,
       mode: MatchMode.ONLINE,
       state: MatchState.IDLE,
     });
     this.persistMatchRoom(room);
-    this.setData({ syncMarkers: [] });
+    this.setData({ syncMarkers: [], roomInputValue: room.roomId });
     this.appendLog('在线房间已重置');
     this.refreshBoard('在线房间已重置');
   },

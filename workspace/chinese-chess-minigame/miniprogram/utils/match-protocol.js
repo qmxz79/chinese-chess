@@ -152,16 +152,18 @@ function applyMatchEvent(room, envelope) {
       next.roomId = envelope.roomId || room.roomId;
       next.seed = envelope.payload.seed ?? room.seed;
       break;
-    case MatchEventType.ACCEPT:
+    case MatchEventType.ACCEPT: {
+      const assignedSelfSide = envelope.payload.selfSide || room.selfSide;
       next.state = MatchState.PLAYING;
       next.roomId = envelope.roomId || room.roomId;
       next.opponentId = envelope.payload.opponentId || room.opponentId;
-      next.selfSide = envelope.payload.selfSide || room.selfSide;
-      next.opponentSide = oppositeSide(next.selfSide);
-      next.turn = envelope.payload.selfSide || room.turn;
+      next.selfSide = assignedSelfSide;
+      next.opponentSide = oppositeSide(assignedSelfSide);
+      next.turn = Side.RED;
       next.seed = envelope.payload.seed ?? room.seed;
       next.result = null;
       break;
+    }
     case MatchEventType.REJECT:
       next.state = MatchState.IDLE;
       next.lastError = { code: 'MATCH_REJECTED', message: envelope.payload.reason || 'rejected' };
