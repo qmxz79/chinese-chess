@@ -21,24 +21,52 @@
   </view>
 
   <view class="board-shell">
-    <view class="board-grid">
-      <block wx:for="{{boardRows}}" wx:for-item="row" wx:key="y">
-        <view class="board-row">
-          <block wx:for="{{row.cells}}" wx:for-item="cell" wx:key="key">
-            <view
-              class="board-cell {{cell.selected ? 'cell-selected' : ''}} {{cell.legalTarget ? 'cell-legal' : ''}} {{cell.hintTarget ? 'cell-hint' : ''}} {{cell.syncTarget ? 'cell-sync' : ''}} {{cell.lastMove ? 'cell-lastmove' : ''}}"
-              data-x="{{cell.x}}"
-              data-y="{{cell.y}}"
-              bindtap="onCellTap"
-            >
-              <view wx:if="{{cell.legalTarget && !cell.piece}}" class="legal-dot"></view>
-              <view wx:if="{{cell.piece}}" class="piece piece-{{cell.piece.side}} {{cell.selected ? 'piece-selected' : ''}}">
-                {{cell.text}}
-              </view>
+    <view class="board-title">楚河　漢界</view>
+    <view class="board-frame">
+      <view class="board-face">
+        <view class="river-band">
+          <text class="river-text river-text-left">楚河</text>
+          <text class="river-text river-text-right">漢界</text>
+        </view>
+
+        <view class="palace palace-top">
+          <view class="palace-line diag-a"></view>
+          <view class="palace-line diag-b"></view>
+        </view>
+        <view class="palace palace-bottom">
+          <view class="palace-line diag-a"></view>
+          <view class="palace-line diag-b"></view>
+        </view>
+
+        <view class="star star-top-left"></view>
+        <view class="star star-top-right"></view>
+        <view class="star star-mid-left-a"></view>
+        <view class="star star-mid-right-a"></view>
+        <view class="star star-mid-left-b"></view>
+        <view class="star star-mid-right-b"></view>
+        <view class="star star-bottom-left"></view>
+        <view class="star star-bottom-right"></view>
+
+        <view class="board-grid">
+          <block wx:for="{{boardRows}}" wx:for-item="row" wx:key="y">
+            <view class="board-row {{row.y === 4 ? 'river-row-top' : ''}} {{row.y === 5 ? 'river-row-bottom' : ''}}">
+              <block wx:for="{{row.cells}}" wx:for-item="cell" wx:key="key">
+                <view
+                  class="board-cell {{cell.selected ? 'cell-selected' : ''}} {{cell.legalTarget ? 'cell-legal' : ''}} {{cell.hintTarget ? 'cell-hint' : ''}} {{cell.syncTarget ? 'cell-sync' : ''}} {{cell.lastMove ? 'cell-lastmove' : ''}}"
+                  data-x="{{cell.x}}"
+                  data-y="{{cell.y}}"
+                  bindtap="onCellTap"
+                >
+                  <view wx:if="{{cell.legalTarget && !cell.piece}}" class="legal-dot"></view>
+                  <view wx:if="{{cell.piece}}" class="piece piece-{{cell.piece.side}} {{cell.selected ? 'piece-selected' : ''}}">
+                    <view class="piece-inner">{{cell.text}}</view>
+                  </view>
+                </view>
+              </block>
             </view>
           </block>
         </view>
-      </block>
+      </view>
     </view>
   </view>
 
